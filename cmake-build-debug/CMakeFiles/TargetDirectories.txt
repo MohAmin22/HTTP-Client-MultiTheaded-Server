@@ -1,0 +1,3 @@
+/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/cmake-build-debug/CMakeFiles/Assignment_1.dir
+/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/cmake-build-debug/CMakeFiles/rebuild_cache.dir
