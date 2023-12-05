@@ -143,17 +143,17 @@ int extract_response_content_length(string http_response)
 
 void handle_response(string http_request, string http_response)
 {
+    int non_found = http_response.find("404 Not Found");
+    if(non_found != string::npos){
+        cout << http_response << endl;
+        return;
+    }
     if (http_request[0] == 'G')
     {
 
         // cout <<"response : "<< http_response.size()<<endl;
         size_t bodyStart = http_response.find("\r\n\r\n") + 4;
         string content_body = http_response.substr(bodyStart);
-        // const char *bodyContent = http_response.c_str() + bodyStart;;
-
-        // cout << "content_body: " << content_body << endl;
-
-        // cout << " \n content_body: " << content_body << endl;
         // save the file in client's repo
         string method = "";
         string file_name = "";
@@ -229,12 +229,13 @@ int main(int argc, char *argv[])
         unsigned int total_received_bytes = 0;
         int response_content_length = INT32_MAX; // to avoid comparision error in http_response.size() >= response_content_length
         string http_response;
-        /////////////////////////////////////////////////// fputs("Received: ", stdout);
         while (true)
         {
             char buffer[BUFSIZE];
             ssize_t number_of_bytes = recv(sock, buffer, BUFSIZE - 1, 0);
-            cout << "buffer : " << buffer << endl;
+            buffer[number_of_bytes] = '\0'; //added to be a string
+            //printf("buffer : %s", buffer);
+           // cout << "buffer : " << buffer << endl;
 
             if (number_of_bytes < 0)
             {
@@ -250,7 +251,7 @@ int main(int argc, char *argv[])
             total_received_bytes += number_of_bytes;
 
             int response_content_length_this_packet = extract_response_content_length(http_response);
-            cout << "response_content_length_this_packet: " << response_content_length_this_packet << endl;
+            //cout << "response_content_length_this_packet: " << response_content_length_this_packet << endl;
 
             if (response_content_length_this_packet != -1)
             {
@@ -259,8 +260,7 @@ int main(int argc, char *argv[])
             }
             if (response_content_length != -1 && total_received_bytes >= response_content_length)
             {
-                cout << "Received : \n"
-                     << http_response << endl;
+               cout << "Received : \n"<< http_response << endl;
                 break;
             }
         }

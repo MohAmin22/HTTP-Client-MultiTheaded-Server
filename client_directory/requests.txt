@@ -1,4 +1,2 @@
+client_get amin.txt
 client_get index.html
-client_get cat.jpeg
-client_get cat2.png
-client_get me.txt
