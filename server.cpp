@@ -7,10 +7,18 @@
 #include <netinet/in.h>
 #include <fstream>
 #include <sstream>
+#include <chrono>
+#include <mutex>
+
+using namespace std;
+using namespace std::chrono;
 
 const int MAX_CONNECTIONS = 10;
+const int MAX_TIME_OUT = 1000; // 1000ms = 1 second
 const int BUFSIZE = 1024;
-using namespace std;
+
+int user_count = 0;
+mutex user_mutex;
 
 void handleGetRequest(int clientSocket, const char *filename) {
     // Build the full path to the requested file
@@ -21,8 +29,9 @@ void handleGetRequest(int clientSocket, const char *filename) {
 
     if (!file.is_open()) {
         // If the file cannot be opened, send a 404 Not Found response
-       cout << "File not found" << std::endl;
-        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: "+ to_string(86)+"\r\nFile not found\r\n";
+        cout << "File not found" << std::endl;
+        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(86) +
+                          "\r\nFile not found\r\n";
         send(clientSocket, response.c_str(), response.size(), 0);
         //close(clientSocket); //not to close the connection if the client requested a non-found file
         return;
@@ -104,18 +113,42 @@ int extract_response_content_length(string http_response) {
 }
 
 void clientHandler(int clientSocket) {
+    //set timeout
+    chrono::high_resolution_clock::time_point start_time_for_this_user = chrono::high_resolution_clock::now();
+    int time_out_for_this_user_milli = MAX_TIME_OUT / user_count;
+    high_resolution_clock::time_point time_end_milli =
+            start_time_for_this_user + milliseconds(time_out_for_this_user_milli);
+    duration<double> timeSinceEpoch_end = time_end_milli.time_since_epoch();
+    double milli_till_time_out = duration_cast<milliseconds>(timeSinceEpoch_end).count();
+    //
     unsigned int total_received_bytes = 0;
     int request_content_length = INT32_MAX; // to avoid comparision error in http_request.size() >= request_content_length
     string http_request;
     while (true) {
+        // calc curr time
+        chrono::high_resolution_clock::time_point current_time_for_this_user = chrono::high_resolution_clock::now();
+        duration<double> timeSinceEpoch_current = current_time_for_this_user.time_since_epoch();
+        double milli_current = duration_cast<milliseconds>(timeSinceEpoch_current).count();
+        // check for time_out
+        if (milli_current >= milli_till_time_out) {
+            cout << "time caused timeout (diff) : " <<  milli_current - milli_till_time_out<< endl;
+            cout << "time out in socket FD : " << clientSocket << endl;
+
+            user_mutex.lock();
+                user_count--;
+            user_mutex.unlock();
+
+            close(clientSocket);
+
+        }
+        //
         char buffer[BUFSIZE];
         ssize_t number_of_bytes = recv(clientSocket, buffer, BUFSIZE - 1, 0);
         // cout << "buffer : " << buffer << endl;
         if (number_of_bytes < 0) {
             // Handle the error (e.g., close the connection or retry)
             break;
-        }
-        else if (number_of_bytes == 0) {
+        } else if (number_of_bytes == 0) {
             printf("number_of_bytes == 0\n");
             break;
         }
@@ -141,7 +174,9 @@ void clientHandler(int clientSocket) {
             continue;
         }
     }
-
+    user_mutex.lock();
+        user_count--;
+    user_mutex.unlock();
     printf("Closing connection\n");
     close(clientSocket);
 }
@@ -195,6 +230,9 @@ int main(int argc, char **argv) {
             std::cerr << "Error accepting connection" << std::endl;
             continue;
         }
+        // Increase the number of current user (helps us to calculate the timeout)
+        user_count++;
+
         std::cout << "Client with address  " << clientAddress.sin_port << "  connected" << std::endl;
         std::thread clientThread(clientHandler, clientSocket);
         clientThread.detach();

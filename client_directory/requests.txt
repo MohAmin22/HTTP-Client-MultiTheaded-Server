@@ -1,2 +1,2 @@
+client_post horse.jpeg
 client_get amin.txt
-client_get index.html
