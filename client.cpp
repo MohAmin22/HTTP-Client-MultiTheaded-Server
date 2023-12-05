@@ -32,14 +32,18 @@ void system_message(const char *msg)
 string read_file(const string file_name)
 {
     // const string path = "/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/";
-    ifstream file(file_name, ios::binary); // creating ifstream object and associate it with the file to be read
+    string file_path = "./client_directory/" + file_name;
+    cout << "file_path: " << file_path << endl;
+    ifstream file(file_path, ios::binary);
     if (!file.is_open())
         cerr << "Unable to open the file" << endl;
-    stringstream stream;
-    stream << file.rdbuf(); // extract the entire file content and pass it to the stringstream object
-    string file_content = stream.str();
+    file.seekg(0, ios::end);
+    streampos fileSize = file.tellg();
+    file.seekg(0, ios::beg);
+    vector<char> buffer(fileSize);
+    file.read(buffer.data(), fileSize);
     file.close();
-    return file_content;
+    return string(buffer.data(), fileSize);
 }
 
 // get line by line from th einput file
@@ -72,7 +76,7 @@ string get_line(const string file_name)
 
     return line;
 }
-// used in build_http_request : func
+
 int calc_content_size(string method, string file_name)
 {
     const unsigned int cr_lf = 4;   // number of bytes of \r\n
@@ -111,9 +115,9 @@ string build_http_request(string input_line)
     {
         unsigned int content_size_num = calc_content_size("POST", file_name);
         request = "POST";
-        request += " " + file_name + " " + "HTTP/1.1" + "\\r\\n";
+        request += " /" + file_name + " " + "HTTP/1.1" + "\\r\\n";
         request += "Content-Length: ";
-        request += to_string(content_size_num) + "\\r\\n" + "\\r\\n";
+        request += to_string(content_size_num) + "\\r\\n\\r\\n";
         request += read_file(file_name);
     }
     else
@@ -155,7 +159,7 @@ void handle_response(string http_request, string http_response)
         string file_name = "";
         istringstream iss(http_request); // parse string on the space
         iss >> method >> file_name;
-        file_name = "./client_directory/"+file_name;
+        file_name = "./client_directory/" + file_name;
         // cout<<"content size ::   "<<content_body.size();
         ofstream get_file(file_name, ios::binary);
         // get_file.open("./client_directory/" + file_name);
@@ -230,7 +234,7 @@ int main(int argc, char *argv[])
         {
             char buffer[BUFSIZE];
             ssize_t number_of_bytes = recv(sock, buffer, BUFSIZE - 1, 0);
-            cout<<"buffer : "<<buffer<<endl;
+            cout << "buffer : " << buffer << endl;
 
             if (number_of_bytes < 0)
             {
@@ -253,14 +257,14 @@ int main(int argc, char *argv[])
                 response_content_length = response_content_length_this_packet;
                 // break;
             }
-
             if (response_content_length != -1 && total_received_bytes >= response_content_length)
             {
-                cout << "Received : \n" << http_response << endl;
+                cout << "Received : \n"
+                     << http_response << endl;
                 break;
             }
         }
-        
+
         handle_response(http_request, http_response);
     }
     close(sock);

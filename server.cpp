@@ -9,6 +9,7 @@
 #include <sstream>
 
 const int MAX_CONNECTIONS = 10;
+const int BUFSIZE = 1024;
 using namespace std;
 
 void handleGetRequest(int clientSocket, const char *filename)
@@ -40,18 +41,18 @@ void handleGetRequest(int clientSocket, const char *filename)
     printf("File content:\n%s\n", buffer.data());
 
     std::ostringstream getResponse;
-    
-    //if file is html
+
+    // if file is html
     if (strcmp(filename + strlen(filename) - 4, "html") == 0)
     {
         getResponse << "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " << buffer.size() << "\r\n\r\n";
     }
-    //if file is jpg
+    // if file is jpg
     else if (strcmp(filename + strlen(filename) - 3, "jpg") == 0)
     {
         getResponse << "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: " << buffer.size() << "\r\n\r\n";
     }
-    //if file is png
+    // if file is png
     else if (strcmp(filename + strlen(filename) - 3, "png") == 0)
     {
         getResponse << "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: " << buffer.size() << "\r\n\r\n";
@@ -60,6 +61,12 @@ void handleGetRequest(int clientSocket, const char *filename)
     {
         getResponse << "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " << buffer.size() << "\r\n\r\n";
     }
+    else
+    {
+        getResponse << "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " << buffer.size() << "\r\n\r\n";
+    }
+
+    // Add the file content to the response
     getResponse.write(buffer.data(), buffer.size());
     // Send the response
     send(clientSocket, getResponse.str().c_str(), getResponse.str().size(), 0);
@@ -67,90 +74,97 @@ void handleGetRequest(int clientSocket, const char *filename)
     std::cout << "File sent successfully" << std::endl;
 }
 
-void handlePostRequest(int clientSocket, const char *requestBody)
+void handlePostRequest(int clientSocket, string requestBody)
 {
-    std::string bodyStr(requestBody);
-    size_t nameStart = bodyStr.find("filename=") + 10;
-    size_t nameEnd = bodyStr.find("\"", nameStart);
-    std::string fileName = bodyStr.substr(nameStart, nameEnd - nameStart);
-    size_t extStart = fileName.rfind('.') + 1;
-    std::string fileExt = fileName.substr(extStart);
-    const char *successResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nFile saved successfully\r\n";
-    send(clientSocket, successResponse, strlen(successResponse), 0);
-    ;
-    size_t contentStart = bodyStr.find("\r\n\r\n") + 4;
-    std::string fileContent = bodyStr.substr(contentStart);
-
-    // Build the full path to save the file
-    std::string filePath = "./server_directory/" + fileName;
-
-    // Open the file for writing
-    std::ofstream outFile(filePath, std::ios::binary);
-    if (!outFile.is_open())
+    string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 78 \r\n\r\nFile saved\r\n";
+    send(clientSocket, response.c_str(), response.size(), 0);
+    char filename[BUFSIZE];
+    sscanf(requestBody.c_str(), "POST /%s HTTP/1.1", filename);
+    printf("Filename: %s\n", filename);
+    cout << "requestBody: " << requestBody << endl;
+    cout << "requestBody.size(): " << requestBody.size() << endl;
+    size_t bodyStart = requestBody.find("\\r\\n\\r\\n") + 8;
+    string content_body = requestBody.substr(bodyStart);
+    cout << "content_body: " << content_body << endl;
+    cout << "content_body.size(): " << content_body.size() << endl;
+    string file_name(filename);
+    file_name = "./server_directory/" + file_name;
+    ofstream get_file(file_name, ios::binary);
+    // get_file.open("./client_directory/" + file_name);
+    if (!get_file.is_open())
     {
-        // If the file cannot be opened, send a 500 Internal Server Error response
-        const char *errorResponse = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nError saving file\r\n";
-        send(clientSocket, errorResponse, strlen(errorResponse), 0);
-        return;
+        cerr << "Error opening file!" << endl;
     }
-    // Write the content to the file
-    outFile << fileContent;
-    outFile.close();
+    else
+    {
+        get_file << content_body;
+        get_file.close();
+    }
     // Send a success response
+}
+
+
+
+int extract_response_content_length(string http_response)
+{
+    size_t content_length_start = http_response.find("Content-Length: ");
+    if (content_length_start == string::npos)
+    {
+        return -1;
+    }
+    content_length_start += 16;
+    size_t content_length_end = http_response.find("\r\n", content_length_start);
+    string content_length_str = http_response.substr(content_length_start, content_length_end - content_length_start);
+    return stoi(content_length_str);
 }
 
 void clientHandler(int clientSocket)
 {
+    unsigned int total_received_bytes = 0;
+    int response_content_length = INT32_MAX; // to avoid comparision error in http_response.size() >= response_content_length
+    string http_response;
+    /////////////////////////////////////////////////// fputs("Received: ", stdout);
     while (true)
     {
-        // Receive the HTTP request
-        const int bufferSize = 1024;
-        char buffer[bufferSize];
-        int bytesRead = recv(clientSocket, buffer, bufferSize - 1, 0);
-        if (bytesRead <= 0)
+        char buffer[BUFSIZE];
+        ssize_t number_of_bytes = recv(clientSocket, buffer, BUFSIZE - 1, 0);
+        // cout << "buffer : " << buffer << endl;
+
+        if (number_of_bytes < 0)
         {
-            // Connection closed or error
+            // Handle the error (e.g., close the connection or retry)
             break;
         }
-
-        buffer[bytesRead] = '\0'; // Null-terminate the received data
-        printf("Received message:\n%s\n", buffer);
-
-        // Check if it's a GET or POST request
+        else if (number_of_bytes == 0)
+        {
+            break;
+        }
         if (strncmp(buffer, "GET", 3) == 0)
         {
-            char filename[bufferSize];
+            char filename[BUFSIZE];
             sscanf(buffer, "GET /%s HTTP/1.1", filename);
             printf("Filename: %s\n", filename);
             handleGetRequest(clientSocket, filename);
+            continue;
         }
-        else if (strncmp(buffer, "POST", 4) == 0)
+        http_response.append(buffer, number_of_bytes);
+        total_received_bytes += number_of_bytes;
+
+        int response_content_length_this_packet = extract_response_content_length(http_response);
+        // cout << "response_content_length_this_packet: " << response_content_length_this_packet << endl;
+
+        if (response_content_length_this_packet != -1)
         {
-
-            //get the file name
-            char filename[bufferSize];
-            sscanf(buffer, "POST /%s HTTP/1.1", filename);
-            printf("Filename: %s\n", filename);
-
-            // get the file length
-            char *contentLength = strstr(buffer, "Content-Length: ");
-            int fileLength = atoi(contentLength + 16);
-            printf("File length: %d\n", fileLength);
-
-            // Read the request body
-            
-
-            
-            // Extract the request body from the POST request
-            const char *bodyStart = strstr(buffer, "\r\n\r\n");
-
-            if (bodyStart != nullptr)
-            {
-                bodyStart += 4; // Move past the \r\n\r\n
-                handlePostRequest(clientSocket, bodyStart);
-            }
+            response_content_length = response_content_length_this_packet;
+            // break;
+        }
+        if (response_content_length != -1 && total_received_bytes >= response_content_length)
+        {
+            handlePostRequest(clientSocket, http_response);
+            continue;
         }
     }
+
     printf("Closing connection\n");
     close(clientSocket);
 }
