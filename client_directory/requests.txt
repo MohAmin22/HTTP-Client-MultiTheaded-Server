@@ -1,2 +1,5 @@
+client_post Credit.pdf
 client_post horse.jpeg
-client_get amin.txt
+client_post cat.jpeg
+client_get me.txt
+client_get index.html

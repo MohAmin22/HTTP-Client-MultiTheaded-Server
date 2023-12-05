@@ -1,3 +1,0 @@
-client_get horse.jpeg
-client_post requests.txt
-client_get amin.txt

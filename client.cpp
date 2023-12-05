@@ -30,7 +30,6 @@ void system_message(const char *msg) {
 string read_file(const string file_name) {
     // const string path = "/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/";
     string file_path = "./client_directory/" + file_name;
-    cout << "file_path: " << file_path << endl;
     ifstream file(file_path, ios::binary);
     if (!file.is_open())
         cerr << "Unable to open the file" << endl;
@@ -110,7 +109,7 @@ string build_http_request(string input_line) {
     } else {
         request = ".";
     }
-    printf("Request: %s\n", request.c_str());
+    // printf("Request: %s\n", request.c_str());
     return request;
 }
 
@@ -132,29 +131,21 @@ void handle_response(string http_request, string http_response) {
         return;
     }
     if (http_request[0] == 'G') {
-
-        // cout <<"response : "<< http_response.size()<<endl;
         size_t bodyStart = http_response.find("\r\n\r\n") + 4;
         string content_body = http_response.substr(bodyStart);
-        // save the file in client's repo
         string method = "";
         string file_name = "";
-        istringstream iss(http_request); // parse string on the space
+        istringstream iss(http_request); 
         iss >> method >> file_name;
         file_name = "./client_directory/" + file_name;
-        // cout<<"content size ::   "<<content_body.size();
         ofstream get_file(file_name, ios::binary);
-        // get_file.open("./client_directory/" + file_name);
         if (!get_file.is_open()) {
             cerr << "Error opening file!" << endl;
         } else {
             get_file << content_body;
             get_file.close();
         }
-
-        // get_file.close();
     }
-    // in case of POST I shouldn't do anything
 }
 
 int main(int argc, char *argv[]) {
@@ -189,31 +180,17 @@ int main(int argc, char *argv[]) {
     string http_request;
     while (true) {
         // take a single request from the input file
-        http_request = build_http_request(
-                get_line("./client_directory/requests.txt")); // get the request that will be sent from input file
+        http_request = build_http_request(get_line("./client_directory/requests.txt")); // get the request that will be sent from input file
         if (http_request == ".")
             break; // the file is ended
 
         size_t request_length = (size_t) http_request.size(); // Determine input length
-        // sending the request over the socket
-        // send : takes pointer to char array
-        ssize_t success_send_bytes = send(sock, http_request.c_str(), request_length, 0);
-        // the server closed the connection
-        if (success_send_bytes < 1) {
-            // Check if the error indicates a closed connection
-            if (errno == EPIPE || errno == ECONNRESET) {
-                std::cerr << "Server closed the connection." << std::endl;
-                // Handle the closed connection here, if needed
-            } else {
-                // Handle other send errors
-                std::cerr << "Error sending data: " << strerror(errno) << std::endl;
-            }
-        }
-        //
+        cout<<" request_length: "<<request_length<<endl;
+        ssize_t success_send_bytes = send(sock, http_request.c_str(), http_request.size() , 0);
+        
+        cout<<" success_send_bytes: "<<success_send_bytes<<endl;
         if (success_send_bytes < 0)
             system_message("send() failed");
-        else if (success_send_bytes != request_length)
-            user_message("send()", "sent unexpected number of bytes");
 
         // receiving the response from the server (waiting)
         unsigned int total_received_bytes = 0;
@@ -222,16 +199,15 @@ int main(int argc, char *argv[]) {
         while (true) {
             char buffer[BUFSIZE];
             ssize_t number_of_bytes = recv(sock, buffer, BUFSIZE - 1, 0);
-            buffer[number_of_bytes] = '\0'; //added to be a string
-            //printf("buffer : %s", buffer);
-            // cout << "buffer : " << buffer << endl;
-
+            buffer[number_of_bytes] = '\0'; 
             if (number_of_bytes < 0) {
                 system_message("recv() failed");
                 // Handle the error (e.g., close the connection or retry)
                 break;
             } else if (number_of_bytes == 0) {
-                break;
+                cout << "Connection closed by server" << endl;
+                close(sock);
+                exit(0);
             }
             http_response.append(buffer, number_of_bytes);
             total_received_bytes += number_of_bytes;
@@ -244,7 +220,7 @@ int main(int argc, char *argv[]) {
                 // break;
             }
             if (response_content_length != -1 && total_received_bytes >= response_content_length) {
-                cout << "Received : \n" << http_response << endl;
+                // cout << "Received : \n" << http_response << endl;
                 break;
             }
         }
