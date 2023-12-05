@@ -32,7 +32,7 @@ void system_message(const char *msg)
 string read_file(const string file_name)
 {
     // const string path = "/home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/";
-    ifstream file(file_name); // creating ifstream object and associate it with the file to be read
+    ifstream file(file_name, ios::binary); // creating ifstream object and associate it with the file to be read
     if (!file.is_open())
         cerr << "Unable to open the file" << endl;
     stringstream stream;
@@ -72,7 +72,7 @@ string get_line(const string file_name)
 
     return line;
 }
-
+// used in build_http_request : func
 int calc_content_size(string method, string file_name)
 {
     const unsigned int cr_lf = 4;   // number of bytes of \r\n

@@ -55,6 +55,12 @@ build CMakeFiles/Assignment_1.dir/client.cpp.o: CXX_COMPILER__Assignment_1_unsca
   OBJECT_DIR = CMakeFiles/Assignment_1.dir
   OBJECT_FILE_DIR = CMakeFiles/Assignment_1.dir
 
+build CMakeFiles/Assignment_1.dir/server.cpp.o: CXX_COMPILER__Assignment_1_unscanned_Debug /home/mohamed/CSED_25/Year_3/Network/Assignments/Assignment_1/server.cpp || cmake_object_order_depends_target_Assignment_1
+  DEP_FILE = CMakeFiles/Assignment_1.dir/server.cpp.o.d
+  FLAGS = -g -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles/Assignment_1.dir
+  OBJECT_FILE_DIR = CMakeFiles/Assignment_1.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Assignment_1
@@ -63,7 +69,7 @@ build CMakeFiles/Assignment_1.dir/client.cpp.o: CXX_COMPILER__Assignment_1_unsca
 #############################################
 # Link the executable Assignment_1
 
-build Assignment_1: CXX_EXECUTABLE_LINKER__Assignment_1_Debug CMakeFiles/Assignment_1.dir/client.cpp.o
+build Assignment_1: CXX_EXECUTABLE_LINKER__Assignment_1_Debug CMakeFiles/Assignment_1.dir/client.cpp.o CMakeFiles/Assignment_1.dir/server.cpp.o
   FLAGS = -g
   OBJECT_DIR = CMakeFiles/Assignment_1.dir
   POST_BUILD = :
